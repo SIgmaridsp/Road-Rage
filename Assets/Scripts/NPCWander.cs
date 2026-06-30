@@ -18,15 +18,22 @@ public class NPCWander : MonoBehaviour
 
     private NavMeshAgent agent;
     private RagdollController ragdoll;
+    private Animator animator;
     private float waitTimer;
+    private string lastAnim = "";
 
     void Awake()
     {
         agent = GetComponent<NavMeshAgent>();
         ragdoll = GetComponent<RagdollController>();
+        animator = GetComponentInChildren<Animator>();
     }
 
-    void OnEnable() => waitTimer = 0f; // fresh start each time it's pulled from the pool
+    void OnEnable()
+    {
+        waitTimer = 0f; // fresh start each time it's pulled from the pool
+        lastAnim = "";
+    }
 
     void Update()
     {
@@ -37,6 +44,14 @@ public class NPCWander : MonoBehaviour
         }
 
         if (!agent.enabled || !agent.isOnNavMesh || agent.pathPending) return;
+
+        // Drive walk/idle animation based on actual movement speed.
+        string anim = agent.velocity.magnitude > 0.3f ? "walk" : "idle";
+        if (anim != lastAnim)
+        {
+            lastAnim = anim;
+            animator?.SetTrigger(anim);
+        }
 
         if (agent.remainingDistance <= agent.stoppingDistance + 0.2f)
         {

@@ -36,6 +36,7 @@ public class CarImpactHandler : MonoBehaviour
 
         ragdoll.Hit(force, contact.point);
         SpawnEffect(contact.point, contact.normal);
+        ScoreManager.Instance?.RegisterHit(speed);
     }
 
     private void SpawnEffect(Vector3 point, Vector3 normal)
