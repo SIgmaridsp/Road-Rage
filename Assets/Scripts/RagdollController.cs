@@ -1,13 +1,7 @@
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.AI;
 
-/// <summary>
-/// Switches a humanoid between "alive" (animated) and "ragdoll" (physics).
-/// Put this on the NPC ROOT. Ragdoll bones (from the Ragdoll Wizard) are children.
-///
-/// Pooling-ready: Revive() resets a corpse to a clean walker, and RagdollElapsed
-/// lets a spawner recycle bodies that have been lying around too long.
-/// </summary>
 [DisallowMultipleComponent]
 public class RagdollController : MonoBehaviour
 {
@@ -21,17 +15,25 @@ public class RagdollController : MonoBehaviour
     [Range(0f, 1f)]
     [SerializeField] private float bodyForceShare = 0.3f;
 
+    [Header("Stand Up")]
+    [Tooltip("Seconds to stay limp on the ground before getting back up.")]
+    [SerializeField] private float stayDownTime = 3f;
+    [Tooltip("If checked, the NPC gets up by itself. Uncheck to stay down forever.")]
+    [SerializeField] private bool autoStandUp = true;
+
     private Rigidbody[] ragdollBodies;
     private Collider[] ragdollColliders;
+    private Transform pelvis;
+    private NavMeshAgent agent;
     private float ragdollStartTime;
 
     public bool IsRagdoll { get; private set; }
-    /// <summary>Seconds this body has been ragdolling (0 while alive).</summary>
     public float RagdollElapsed => IsRagdoll ? Time.time - ragdollStartTime : 0f;
 
     void Awake()
     {
         if (animator == null) animator = GetComponentInChildren<Animator>();
+        agent = GetComponent<NavMeshAgent>();
 
         var bodies = new List<Rigidbody>();
         foreach (var rb in GetComponentsInChildren<Rigidbody>())
@@ -43,7 +45,20 @@ public class RagdollController : MonoBehaviour
             if (c != mainCollider && c.gameObject != gameObject) cols.Add(c);
         ragdollColliders = cols.ToArray();
 
+        float best = float.MaxValue;
+        foreach (var rb in ragdollBodies)
+        {
+            float d = Vector3.SqrMagnitude(rb.transform.position - transform.position);
+            if (d < best) { best = d; pelvis = rb.transform; }
+        }
+
         SetRagdoll(false);
+    }
+
+    void Update()
+    {
+        if (IsRagdoll && autoStandUp && RagdollElapsed >= stayDownTime)
+            StandUp();
     }
 
     private void SetRagdoll(bool state)
@@ -68,6 +83,8 @@ public class RagdollController : MonoBehaviour
         SetRagdoll(true);
         ragdollStartTime = Time.time;
 
+        if (agent != null && agent.enabled) agent.enabled = false;
+
         Rigidbody closest = null;
         float best = float.MaxValue;
         foreach (var rb in ragdollBodies)
@@ -84,17 +101,45 @@ public class RagdollController : MonoBehaviour
         }
     }
 
-    /// <summary>Reset back to a clean animated state (for object pooling).</summary>
+    public void StandUp()
+    {
+        if (!IsRagdoll) return;
+
+        Vector3 restPos = pelvis != null ? pelvis.position : transform.position;
+
+        foreach (var rb in ragdollBodies)
+        {
+            rb.linearVelocity = Vector3.zero;
+            rb.angularVelocity = Vector3.zero;
+        }
+
+        SetRagdoll(false);
+
+        Vector3 standPos = restPos;
+        if (NavMesh.SamplePosition(restPos, out var hit, 5f, NavMesh.AllAreas))
+            standPos = hit.position;
+
+        transform.position = standPos;
+        transform.rotation = Quaternion.Euler(0f, transform.eulerAngles.y, 0f);
+
+        if (agent != null)
+        {
+            agent.enabled = true;
+            if (agent.isOnNavMesh) agent.Warp(standPos);
+        }
+    }
+
     public void Revive()
     {
         if (IsRagdoll)
         {
             foreach (var rb in ragdollBodies)
             {
-                rb.linearVelocity = Vector3.zero;   // 2022/2023 LTS: rb.velocity
+                rb.linearVelocity = Vector3.zero;
                 rb.angularVelocity = Vector3.zero;
             }
         }
         SetRagdoll(false);
+        if (agent != null) agent.enabled = true;
     }
 }

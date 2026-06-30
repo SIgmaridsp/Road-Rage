@@ -62,3 +62,7 @@ Thumbs.db
 # Plastic SCM
 .plastic/
 ignore.conf
+
+# Third-party assets (re-import from Asset Store)
+Assets/Triangularity/
+Assets/Triangularity.meta
