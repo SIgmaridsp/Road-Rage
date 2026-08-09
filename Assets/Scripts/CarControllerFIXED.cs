@@ -1,27 +1,25 @@
 using UnityEngine;
-
-/// <summary>
-/// THE CORRECT ONE. World-relative arcade car: WASD always points the SAME world
-/// direction no matter which way the car faces. W = forward, S = back, A/D = strafe.
-/// The car body rotates to face wherever it's driving.
-///
-/// Put on the car. Needs a Rigidbody and a Collider.
-/// </summary>
 [RequireComponent(typeof(Rigidbody))]
 public class CarControllerFIXED : MonoBehaviour
 {
     [Header("Drive")]
-    [SerializeField] private float acceleration = 60f;
-    [SerializeField] private float maxSpeed     = 25f;
-    [SerializeField] private float turnSmooth   = 12f;
+    [SerializeField] private float enginePower = 3000f;
+    [SerializeField] private float maxSpeed    = 25f;
+    [SerializeField] private float turnStrength = 80f;
 
-    [Header("Stability")]
-    [SerializeField] private float downForce        = 100f;
-    [SerializeField] private float centerOfMassDrop = 0.6f;
-    [SerializeField] private float groundDrag       = 3f;
+    [Header("Grip / Feel")]
+    [Range(0f,1f)]
+    [SerializeField] private float grip = 0.9f;
+    [SerializeField] private float centerOfMassDrop = 1.0f;
+    [SerializeField] private float downForce = 20f;
+
+    [Header("Jump")]
+    [SerializeField] private float jumpForce = 8f;
 
     private Rigidbody rb;
-    private Vector3 input;
+    private float throttle;
+    private float steer;
+    private bool jumpQueued;
 
     void Awake()
     {
@@ -31,35 +29,35 @@ public class CarControllerFIXED : MonoBehaviour
 
     void Update()
     {
-        float h = Input.GetAxisRaw("Horizontal"); // A/D
-        float v = Input.GetAxisRaw("Vertical");   // W/S
-
-        // Fixed WORLD directions — never relative to the car's facing.
-        input = new Vector3(h, 0f, v);
-        if (input.sqrMagnitude > 1f) input.Normalize();
+        throttle = Input.GetAxis("Vertical");
+        steer    = Input.GetAxis("Horizontal");
+        if (Input.GetKeyDown(KeyCode.Space))
+            jumpQueued = true;
     }
 
     void FixedUpdate()
     {
-        if (input.sqrMagnitude > 0.01f)
-        {
-            rb.AddForce(input * acceleration, ForceMode.Acceleration);
+        float speed = rb.linearVelocity.magnitude;
 
-            Quaternion targetRot = Quaternion.LookRotation(input, Vector3.up);
-            rb.MoveRotation(Quaternion.Slerp(rb.rotation, targetRot, turnSmooth * Time.fixedDeltaTime));
+        if (Mathf.Abs(throttle) > 0.01f && speed < maxSpeed)
+        {
+            rb.AddForce(transform.forward * throttle * enginePower * Time.fixedDeltaTime, ForceMode.VelocityChange);
         }
 
-        Vector3 flat = new Vector3(rb.linearVelocity.x, 0f, rb.linearVelocity.z);
-        if (flat.magnitude > maxSpeed)
+        if (Mathf.Abs(steer) > 0.01f && speed > 0.5f)
         {
-            flat = flat.normalized * maxSpeed;
-            rb.linearVelocity = new Vector3(flat.x, rb.linearVelocity.y, flat.z);
+            float turn = steer * turnStrength * Time.fixedDeltaTime;
+            rb.MoveRotation(rb.rotation * Quaternion.Euler(0f, turn, 0f));
         }
 
-        if (input.sqrMagnitude < 0.01f)
+        Vector3 forwardVel = transform.forward * Vector3.Dot(rb.linearVelocity, transform.forward);
+        Vector3 rightVel   = transform.right   * Vector3.Dot(rb.linearVelocity, transform.right);
+        rb.linearVelocity = forwardVel + rightVel * (1f - grip) + Vector3.up * rb.linearVelocity.y;
+
+        if (jumpQueued)
         {
-            Vector3 slow = new Vector3(rb.linearVelocity.x, 0f, rb.linearVelocity.z);
-            rb.AddForce(-slow * groundDrag, ForceMode.Acceleration);
+            rb.AddForce(Vector3.up * jumpForce, ForceMode.Impulse);
+            jumpQueued = false;
         }
 
         rb.AddForce(Vector3.down * downForce);
