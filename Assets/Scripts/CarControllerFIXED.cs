@@ -42,6 +42,10 @@ public class CarControllerFIXED : MonoBehaviour
         if (Mathf.Abs(throttle) > 0.01f && speed < maxSpeed)
         {
             rb.AddForce(transform.forward * throttle * enginePower * Time.fixedDeltaTime, ForceMode.VelocityChange);
+            // Clamp forward speed immediately so VelocityChange can't overshoot maxSpeed
+            float fwdSpeed = Vector3.Dot(rb.linearVelocity, transform.forward);
+            if (Mathf.Abs(fwdSpeed) > maxSpeed)
+                rb.linearVelocity -= transform.forward * (fwdSpeed - Mathf.Sign(fwdSpeed) * maxSpeed);
         }
 
         if (Mathf.Abs(steer) > 0.01f && speed > 0.5f)
@@ -52,7 +56,9 @@ public class CarControllerFIXED : MonoBehaviour
 
         Vector3 forwardVel = transform.forward * Vector3.Dot(rb.linearVelocity, transform.forward);
         Vector3 rightVel   = transform.right   * Vector3.Dot(rb.linearVelocity, transform.right);
-        rb.linearVelocity = forwardVel + rightVel * (1f - grip) + Vector3.up * rb.linearVelocity.y;
+        // Dampen upward velocity each tick so collision impulses don't launch the car
+        float vertY = rb.linearVelocity.y > 0f ? rb.linearVelocity.y * 0.75f : rb.linearVelocity.y;
+        rb.linearVelocity = forwardVel + rightVel * (1f - grip) + Vector3.up * vertY;
 
         if (jumpQueued)
         {
@@ -60,6 +66,6 @@ public class CarControllerFIXED : MonoBehaviour
             jumpQueued = false;
         }
 
-        rb.AddForce(Vector3.down * downForce);
+        rb.AddForce(Vector3.down * downForce, ForceMode.Acceleration);
     }
 }
