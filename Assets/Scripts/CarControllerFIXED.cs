@@ -76,6 +76,6 @@ public class CarControllerFIXED : MonoBehaviour
             jumpQueued = false;
         }
 
-        rb.AddForce(Vector3.down * downForce, ForceMode.Acceleration);
+        rb.AddForce(Vector3.down * downForce);
     }
 }
