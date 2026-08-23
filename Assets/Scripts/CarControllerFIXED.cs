@@ -14,6 +14,14 @@ public class CarControllerFIXED : MonoBehaviour
     [SerializeField] private float downForce = 100f;
     [SerializeField] private float groundDrag = 3f;
 
+    [Header("Drift")]
+    [Tooltip("Grip at full drift (lower = more slide)")]
+    [Range(0f,1f)]
+    [SerializeField] private float driftGrip = 0.05f;
+    [Tooltip("Steering input (0-1) required to break traction and start drifting")]
+    [Range(0f,1f)]
+    [SerializeField] private float driftThreshold = 0.7f;
+
     [Header("Jump")]
     [SerializeField] private float jumpForce = 8f;
 
@@ -63,12 +71,18 @@ public class CarControllerFIXED : MonoBehaviour
             rb.MoveRotation(rb.rotation * Quaternion.Euler(0f, turn, 0f));
         }
 
+        // Drift: grip drops toward driftGrip when steering hard at speed,
+        // letting the rear slide out into a drift
+        float speedRatio    = Mathf.Clamp01(speed / maxSpeed);
+        float driftBlend    = Mathf.Clamp01((Mathf.Abs(steer) - driftThreshold) / (1f - driftThreshold)) * speedRatio;
+        float effectiveGrip = Mathf.Lerp(grip, driftGrip, driftBlend);
+
         // Reconstruct velocity using flat world axes so Y is never double-counted
         // when the car is pitched after a collision
         Vector3 forwardVel = flatFwd   * Vector3.Dot(rb.linearVelocity, flatFwd);
         Vector3 rightVel   = flatRight * Vector3.Dot(rb.linearVelocity, flatRight);
         float vertY = rb.linearVelocity.y > 0f ? rb.linearVelocity.y * 0.75f : rb.linearVelocity.y;
-        rb.linearVelocity = forwardVel + rightVel * (1f - grip) + Vector3.up * vertY;
+        rb.linearVelocity = forwardVel + rightVel * (1f - effectiveGrip) + Vector3.up * vertY;
 
         if (jumpQueued)
         {
