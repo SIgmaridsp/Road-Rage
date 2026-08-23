@@ -36,6 +36,50 @@ public class CarControllerFIXED : MonoBehaviour
     {
         rb = GetComponent<Rigidbody>();
         rb.centerOfMass += Vector3.down * centerOfMassDrop;
+
+        if (driftSmokeFX == null || driftSmokeFX.Length == 0)
+            driftSmokeFX = BuildSmokeFX();
+    }
+
+    private ParticleSystem[] BuildSmokeFX()
+    {
+        // Rear-left and rear-right wheel positions (local space)
+        Vector3[] offsets = { new Vector3(-0.6f, 0f, -0.8f), new Vector3(0.6f, 0f, -0.8f) };
+        var result = new ParticleSystem[offsets.Length];
+
+        for (int i = 0; i < offsets.Length; i++)
+        {
+            var go = new GameObject(i == 0 ? "DriftSmoke_L" : "DriftSmoke_R");
+            go.transform.SetParent(transform, false);
+            go.transform.localPosition = offsets[i];
+
+            var ps = go.AddComponent<ParticleSystem>();
+            go.AddComponent<ParticleSystemRenderer>();
+
+            var main = ps.main;
+            main.loop              = true;
+            main.playOnAwake       = false;
+            main.simulationSpace   = ParticleSystemSimulationSpace.World;
+            main.startLifetime     = new ParticleSystem.MinMaxCurve(0.8f, 1.4f);
+            main.startSpeed        = new ParticleSystem.MinMaxCurve(0.3f, 0.8f);
+            main.startSize         = new ParticleSystem.MinMaxCurve(0.3f, 0.7f);
+            main.startColor        = new ParticleSystem.MinMaxGradient(
+                                         new Color(0.7f, 0.7f, 0.7f, 0.6f),
+                                         new Color(0.4f, 0.4f, 0.4f, 0.3f));
+            main.gravityModifier   = -0.06f;   // smoke drifts upward
+            main.maxParticles      = 150;
+
+            var emission = ps.emission;
+            emission.rateOverTime  = 0f;       // code drives this at runtime
+
+            var shape = ps.shape;
+            shape.shapeType = ParticleSystemShapeType.Sphere;
+            shape.radius    = 0.15f;
+
+            result[i] = ps;
+        }
+
+        return result;
     }
 
     void Update()
