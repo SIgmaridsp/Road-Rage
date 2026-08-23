@@ -28,16 +28,29 @@ public class NPCPool : MonoBehaviour
         var q = GetQueue(prefab);
         GameObject npc = q.Count > 0 ? q.Dequeue() : CreateInactive(prefab);
 
-        npc.transform.SetPositionAndRotation(position, rotation);
+        // Snap to actual ground so NPCs don't float or spawn inside terrain
+        Vector3 spawnPos = GroundSnap(position);
+        npc.transform.SetPositionAndRotation(spawnPos, rotation);
         npc.SetActive(true);
 
         npc.GetComponent<RagdollController>()?.Revive();
 
         var agent = npc.GetComponent<NavMeshAgent>();
-        if (agent != null) { agent.enabled = true; agent.Warp(position); }
+        if (agent != null) { agent.enabled = true; agent.Warp(spawnPos); }
 
         npc.GetComponent<Health>()?.ResetHealth();
         return npc;
+    }
+
+    private static Vector3 GroundSnap(Vector3 pos)
+    {
+        Vector3 origin = pos + Vector3.up * 5f;
+        if (Physics.Raycast(origin, Vector3.down, out RaycastHit hit, 12f,
+                            ~LayerMask.GetMask("Ignore Raycast")))
+            return hit.point;
+        if (NavMesh.SamplePosition(pos, out NavMeshHit navHit, 4f, NavMesh.AllAreas))
+            return navHit.position;
+        return pos;
     }
 
     public void Despawn(GameObject npc)

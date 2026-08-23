@@ -27,6 +27,8 @@ public class CarControllerFIXED : MonoBehaviour
     [Header("Jump")]
     [SerializeField] private float jumpForce = 8f;
 
+    public static CarControllerFIXED Instance { get; private set; }
+
     private Rigidbody rb;
     private float throttle;
     private float steer;
@@ -34,8 +36,14 @@ public class CarControllerFIXED : MonoBehaviour
 
     void Awake()
     {
+        Instance = this;
         rb = GetComponent<Rigidbody>();
         rb.centerOfMass += Vector3.down * centerOfMassDrop;
+
+        // Prevent the car from rolling or pitching over on impact
+        rb.constraints = RigidbodyConstraints.FreezeRotationX
+                       | RigidbodyConstraints.FreezeRotationZ;
+        rb.angularDamping = 4f;
 
         if (driftSmokeFX == null || driftSmokeFX.Length == 0)
             driftSmokeFX = BuildSmokeFX();

@@ -85,6 +85,9 @@ public class RagdollController : MonoBehaviour
 
         if (agent != null && agent.enabled) agent.enabled = false;
 
+        // Tell the wander brain it was physically hit so it can react on recovery
+        GetComponent<NPCWander>()?.OnHitByCar();
+
         Rigidbody closest = null;
         float best = float.MaxValue;
         foreach (var rb in ragdollBodies)
@@ -105,7 +108,8 @@ public class RagdollController : MonoBehaviour
     {
         if (!IsRagdoll) return;
 
-        Vector3 restPos = pelvis != null ? pelvis.position : transform.position;
+        // Pelvis is mid-body — cast downward from it to find the actual ground
+        Vector3 pelvisPos = pelvis != null ? pelvis.position : transform.position;
 
         foreach (var rb in ragdollBodies)
         {
@@ -115,18 +119,18 @@ public class RagdollController : MonoBehaviour
 
         SetRagdoll(false);
 
-        Vector3 standPos = restPos;
-        if (NavMesh.SamplePosition(restPos, out var hit, 5f, NavMesh.AllAreas))
-            standPos = hit.position;
-
-        transform.position = standPos;
+        Vector3 groundPos = FindGround(pelvisPos);
+        transform.position = groundPos;
         transform.rotation = Quaternion.Euler(0f, transform.eulerAngles.y, 0f);
 
         if (agent != null)
         {
             agent.enabled = true;
-            if (agent.isOnNavMesh) agent.Warp(standPos);
+            if (agent.isOnNavMesh) agent.Warp(groundPos);
         }
+
+        // Let the NPCWander know we recovered so it can react
+        GetComponent<NPCWander>()?.OnStoodUp();
     }
 
     public void Revive()
@@ -140,6 +144,28 @@ public class RagdollController : MonoBehaviour
             }
         }
         SetRagdoll(false);
+
+        // Snap to ground so pooled NPCs don't float
+        Vector3 groundPos = FindGround(transform.position + Vector3.up * 2f);
+        transform.position = groundPos;
+        transform.rotation = Quaternion.Euler(0f, transform.eulerAngles.y, 0f);
+
         if (agent != null) agent.enabled = true;
+    }
+
+    /// Shoots a ray downward from <paramref name="from"/> to find the floor.
+    /// Falls back to NavMesh sampling if nothing is hit.
+    private static Vector3 FindGround(Vector3 from)
+    {
+        // Cast from a bit above in case 'from' is already inside geometry
+        Vector3 origin = from + Vector3.up * 0.5f;
+        if (Physics.Raycast(origin, Vector3.down, out RaycastHit hit, 15f,
+                            ~LayerMask.GetMask("Ignore Raycast")))
+            return hit.point;
+
+        if (NavMesh.SamplePosition(from, out NavMeshHit navHit, 5f, NavMesh.AllAreas))
+            return navHit.position;
+
+        return from;
     }
 }

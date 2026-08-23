@@ -12,9 +12,16 @@ public class RandomPedestrianAppearance : MonoBehaviour
     // OnEnable is called each time the pooled object is activated.
     void OnEnable()
     {
-        if (palettes == null || palettes.Length == 0) return;
-        var smr = GetComponentInChildren<SkinnedMeshRenderer>();
-        if (smr == null) return;
-        smr.material = palettes[Random.Range(0, palettes.Length)];
+        // Random palette
+        if (palettes != null && palettes.Length > 0)
+        {
+            var smr = GetComponentInChildren<SkinnedMeshRenderer>();
+            if (smr != null)
+                smr.material = palettes[Random.Range(0, palettes.Length)];
+        }
+
+        // Random scale ±15% so the crowd looks less cloned
+        float s = Random.Range(0.85f, 1.15f);
+        transform.localScale = new Vector3(s, s, s);
     }
 }
