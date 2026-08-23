@@ -5146,6 +5146,7 @@ GameObject:
   - component: {fileID: 619263643}
   - component: {fileID: 619263644}
   - component: {fileID: 619263650}
+  - component: {fileID: 619263651}
   m_Layer: 0
   m_Name: Cube
   m_TagString: Untagged
@@ -5322,6 +5323,21 @@ MonoBehaviour:
   pitchMax: 4
   rollMax: 5
   smoothTime: 0.12
+--- !u!114 &619263651
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 619263635}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::InteriorCameraView
+  seatOffset: {x: 0.25, y: 2.1, z: 0.55}
+  seatRotation: {x: 8, y: 0, z: 0}
+  toggleKey: 102
 --- !u!1001 &777123456
 PrefabInstance:
   m_ObjectHideFlags: 0
