@@ -9,7 +9,7 @@ public class CarControllerFIXED : MonoBehaviour
 
     [Header("Grip / Feel")]
     [Range(0f,1f)]
-    [SerializeField] private float grip = 0.9f;
+    [SerializeField] private float grip = 0.72f;
     [SerializeField] private float centerOfMassDrop = 0.6f;
     [SerializeField] private float downForce = 100f;
     [SerializeField] private float groundDrag = 3f;
