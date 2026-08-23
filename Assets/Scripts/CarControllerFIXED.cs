@@ -21,6 +21,8 @@ public class CarControllerFIXED : MonoBehaviour
     [Tooltip("Steering input (0-1) required to break traction and start drifting")]
     [Range(0f,1f)]
     [SerializeField] private float driftThreshold = 0.7f;
+    [Tooltip("Particle systems placed at rear wheel positions — emit smoke when drifting")]
+    [SerializeField] private ParticleSystem[] driftSmokeFX;
 
     [Header("Jump")]
     [SerializeField] private float jumpForce = 8f;
@@ -76,6 +78,25 @@ public class CarControllerFIXED : MonoBehaviour
         float speedRatio    = Mathf.Clamp01(speed / maxSpeed);
         float driftBlend    = Mathf.Clamp01((Mathf.Abs(steer) - driftThreshold) / (1f - driftThreshold)) * speedRatio;
         float effectiveGrip = Mathf.Lerp(grip, driftGrip, driftBlend);
+
+        // Smoke FX — emission rate scales with drift intensity
+        if (driftSmokeFX != null)
+        {
+            foreach (var ps in driftSmokeFX)
+            {
+                if (ps == null) continue;
+                var emission = ps.emission;
+                if (driftBlend > 0.05f)
+                {
+                    if (!ps.isPlaying) ps.Play();
+                    emission.rateOverTimeMultiplier = driftBlend * 40f;
+                }
+                else
+                {
+                    if (ps.isPlaying) ps.Stop();
+                }
+            }
+        }
 
         // Reconstruct velocity using flat world axes so Y is never double-counted
         // when the car is pitched after a collision
