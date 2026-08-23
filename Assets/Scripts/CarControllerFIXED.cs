@@ -43,9 +43,13 @@ public class CarControllerFIXED : MonoBehaviour
 
     private ParticleSystem[] BuildSmokeFX()
     {
-        // Rear-left and rear-right wheel positions (local space)
         Vector3[] offsets = { new Vector3(-0.6f, 0f, -0.8f), new Vector3(0.6f, 0f, -0.8f) };
         var result = new ParticleSystem[offsets.Length];
+
+        // Pick the best available particle shader for the current render pipeline
+        Shader shader = Shader.Find("Universal Render Pipeline/Particles/Unlit")
+                     ?? Shader.Find("Particles/Standard Unlit")
+                     ?? Shader.Find("Legacy Shaders/Particles/Alpha Blended");
 
         for (int i = 0; i < offsets.Length; i++)
         {
@@ -53,28 +57,67 @@ public class CarControllerFIXED : MonoBehaviour
             go.transform.SetParent(transform, false);
             go.transform.localPosition = offsets[i];
 
-            var ps = go.AddComponent<ParticleSystem>();
-            go.AddComponent<ParticleSystemRenderer>();
+            var ps  = go.AddComponent<ParticleSystem>();
+            var psr = go.GetComponent<ParticleSystemRenderer>();
 
+            // Soft alpha-blend so puffs feather into each other
+            if (shader != null) psr.material = new Material(shader);
+            psr.sortingFudge = 10f;
+
+            // Main module
             var main = ps.main;
-            main.loop              = true;
-            main.playOnAwake       = false;
-            main.simulationSpace   = ParticleSystemSimulationSpace.World;
-            main.startLifetime     = new ParticleSystem.MinMaxCurve(0.8f, 1.4f);
-            main.startSpeed        = new ParticleSystem.MinMaxCurve(0.3f, 0.8f);
-            main.startSize         = new ParticleSystem.MinMaxCurve(0.3f, 0.7f);
-            main.startColor        = new ParticleSystem.MinMaxGradient(
-                                         new Color(0.7f, 0.7f, 0.7f, 0.6f),
-                                         new Color(0.4f, 0.4f, 0.4f, 0.3f));
-            main.gravityModifier   = -0.06f;   // smoke drifts upward
-            main.maxParticles      = 150;
+            main.loop            = true;
+            main.playOnAwake     = false;
+            main.simulationSpace = ParticleSystemSimulationSpace.World;
+            main.startLifetime   = new ParticleSystem.MinMaxCurve(1.2f, 2.0f);
+            main.startSpeed      = new ParticleSystem.MinMaxCurve(0.2f, 0.6f);
+            main.startSize       = new ParticleSystem.MinMaxCurve(0.15f, 0.35f);
+            main.startRotation   = new ParticleSystem.MinMaxCurve(0f, 2f * Mathf.PI);
+            main.startColor      = new ParticleSystem.MinMaxGradient(
+                                       new Color(0.45f, 0.45f, 0.45f, 0.9f),
+                                       new Color(0.7f,  0.7f,  0.7f,  0.5f));
+            main.gravityModifier = -0.08f;
+            main.maxParticles    = 200;
 
+            // Emission — driven at runtime by driftBlend
             var emission = ps.emission;
-            emission.rateOverTime  = 0f;       // code drives this at runtime
+            emission.rateOverTime = 0f;
 
+            // Flat circle at tyre contact patch, facing up
             var shape = ps.shape;
-            shape.shapeType = ParticleSystemShapeType.Sphere;
-            shape.radius    = 0.15f;
+            shape.shapeType = ParticleSystemShapeType.Circle;
+            shape.radius    = 0.12f;
+            shape.rotation  = new Vector3(90f, 0f, 0f);
+
+            // Grow from compact puff to full billow
+            var sol = ps.sizeOverLifetime;
+            sol.enabled = true;
+            sol.size    = new ParticleSystem.MinMaxCurve(4f, AnimationCurve.EaseInOut(0f, 0.3f, 1f, 1f));
+
+            // Fade: snap in, linger grey, dissolve out
+            var col = ps.colorOverLifetime;
+            col.enabled = true;
+            var grad = new Gradient();
+            grad.SetKeys(
+                new GradientColorKey[]
+                {
+                    new GradientColorKey(new Color(0.35f, 0.35f, 0.35f), 0f),
+                    new GradientColorKey(new Color(0.65f, 0.65f, 0.65f), 0.4f),
+                    new GradientColorKey(new Color(0.85f, 0.85f, 0.85f), 1f)
+                },
+                new GradientAlphaKey[]
+                {
+                    new GradientAlphaKey(0f,   0f),
+                    new GradientAlphaKey(0.8f, 0.08f),
+                    new GradientAlphaKey(0.55f, 0.5f),
+                    new GradientAlphaKey(0f,   1f)
+                });
+            col.color = new ParticleSystem.MinMaxGradient(grad);
+
+            // Slow random spin so puffs don't look frozen
+            var rol = ps.rotationOverLifetime;
+            rol.enabled = true;
+            rol.z = new ParticleSystem.MinMaxCurve(-25f * Mathf.Deg2Rad, 25f * Mathf.Deg2Rad);
 
             result[i] = ps;
         }
